@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stepwise Credit Assignment for GRPO on Flow-Matching Models</title>
+  <meta name="description" content="Stepwise-Flow-GRPO assigns credit to individual denoising steps using gain-based advantages, achieving superior sample efficiency over uniform credit assignment. CVPR 2026.">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #222222;
+      --muted: #666666;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --card-bg: #f8f9fa;
+      --border: #e5e7eb;
+      --code-bg: #f1f3f5;
+      --max-width: 900px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1a2e;
+        --text: #e0e0e0;
+        --muted: #a0a0a0;
+        --accent: #60a5fa;
+        --accent-hover: #93bbfc;
+        --card-bg: #16213e;
+        --border: #334155;
+        --code-bg: #0f3460;
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 16px;
+    }
+
+    .container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      padding: 60px 0 20px;
+    }
+
+    .venue-badge {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      padding: 4px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 2.2em;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 24px;
+    }
+
+    .authors {
+      font-size: 1.05em;
+      margin-bottom: 8px;
+    }
+
+    .authors a {
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .authors a:hover {
+      color: var(--accent);
+    }
+
+    .affiliations {
+      font-size: 0.9em;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    .links {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .links a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-outline {
+      border: 1.5px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Sections */
+    section {
+      padding: 40px 0;
+    }
+
+    h2 {
+      font-size: 1.6em;
+      font-weight: 700;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    h3 {
+      font-size: 1.15em;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    p {
+      margin-bottom: 14px;
+    }
+
+    /* Figures */
+    .figure {
+      margin: 30px 0;
+      text-align: center;
+    }
+
+    .figure img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+
+    .figure-caption {
+      font-size: 0.9em;
+      color: var(--muted);
+      margin-top: 10px;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Grid for side-by-side figures */
+    .figure-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin: 20px 0;
+    }
+
+    .figure-grid img {
+      width: 100%;
+      border-radius: 4px;
+    }
+
+    .figure-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .figure-grid-2 img {
+      width: 100%;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 600px) {
+      .figure-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* Abstract */
+    .abstract-text {
+      text-align: justify;
+      font-size: 1.02em;
+    }
+
+    /* Results table */
+    .results-table-wrapper {
+      overflow-x: auto;
+      margin: 20px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92em;
+    }
+
+    th, td {
+      padding: 8px 12px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: var(--card-bg);
+      font-weight: 600;
+    }
+
+    td:first-child, th:first-child {
+      text-align: left;
+    }
+
+    tr.highlight td {
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .table-section td {
+      font-weight: 600;
+      font-style: italic;
+      color: var(--muted);
+      background: var(--card-bg);
+    }
+
+    /* BibTeX */
+    .bibtex-wrapper {
+      position: relative;
+      background: var(--code-bg);
+      border-radius: 8px;
+      padding: 20px;
+      margin: 16px 0;
+    }
+
+    .bibtex-wrapper pre {
+      font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 5px 14px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .copy-btn:hover {
+      background: var(--accent-hover);
+    }
+
+    /* Highlights */
+    .highlights {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .highlight-card {
+      background: var(--card-bg);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .highlight-card .number {
+      font-size: 2em;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .highlight-card .label {
+      font-size: 0.85em;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 40px 0;
+      font-size: 0.85em;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* Separator */
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="venue-badge">CVPR 2026</div>
+    <h1>Stepwise Credit Assignment for GRPO on Flow-Matching Models</h1>
+    <div class="authors">
+      <a href="https://yashsavani.com">Yash Savani</a><sup>1*</sup>,
+      Branislav Kveton<sup>2</sup>,
+      Yuchen Liu<sup>2</sup>,
+      Yilin Wang<sup>2</sup>,
+      Jing Shi<sup>2</sup>,
+      Subhojyoti Mukherjee<sup>2</sup>,
+      Nikos Vlassis<sup>2</sup>,
+      Krishna Kumar Singh<sup>2</sup>
+    </div>
+    <div class="affiliations">
+      <sup>1</sup>Carnegie Mellon University &nbsp;&nbsp; <sup>2</sup>Adobe Research<br>
+      <span style="font-size: 0.9em;">*Work done while intern at Adobe</span>
+    </div>
+    <div class="links">
+      <a href="#" class="links btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        arXiv
+      </a>
+    </div>
+  </header>
+
+  <!-- Teaser -->
+  <section>
+    <div class="figure">
+      <img src="static/teaser_pdf.png" alt="Teaser figure showing stepwise credit assignment from temporal reward structure">
+      <div class="figure-caption">
+        <strong>Stepwise credit assignment from temporal reward structure.</strong>
+        (Left) Two trajectories from the same initial noise reach similar final rewards (~0.90), but diverge substantially at intermediate steps. Uniform credit assignment treats them nearly identically; Stepwise-Flow-GRPO uses gains g<sub>t</sub> = r<sub>t-1</sub> - r<sub>t</sub> to credit steps that improve reward and penalize those that hurt it.
+        (Right) This finer credit assignment yields faster convergence and higher final reward.
+      </div>
+    </div>
+  </section>
+
+  <!-- Abstract -->
+  <section>
+    <h2>Abstract</h2>
+    <p class="abstract-text">
+      Flow-GRPO successfully applies reinforcement learning to flow models, but uses <em>uniform credit assignment</em> across all steps. This ignores the temporal structure of diffusion generation: early steps determine composition and content (low-frequency structure), while late steps resolve details and textures (high-frequency details). Moreover, assigning uniform credit based solely on the final image can inadvertently <em>reward suboptimal intermediate steps</em>, especially when errors are corrected later in the diffusion trajectory. We propose <strong>Stepwise-Flow-GRPO</strong>, which assigns credit based on each step's reward improvement. By leveraging Tweedie's formula to obtain intermediate reward estimates and introducing gain-based advantages, our method achieves superior sample efficiency and faster convergence. We also introduce a DDIM-inspired SDE that improves reward quality while preserving stochasticity for policy gradients.
+    </p>
+  </section>
+
+  <!-- Key Numbers -->
+  <section>
+    <h2>Key Results</h2>
+    <div class="highlights">
+      <div class="highlight-card">
+        <div class="number">0.87</div>
+        <div class="label">GenEval Score<br>(vs 0.72 Flow-GRPO)</div>
+      </div>
+      <div class="highlight-card">
+        <div class="number">3/4</div>
+        <div class="label">Settings with superior<br>sample &amp; wall-clock efficiency</div>
+      </div>
+      <div class="highlight-card">
+        <div class="number">&gt;GPT-4o</div>
+        <div class="label">Surpasses GPT-4o (0.84)<br>on GenEval benchmark</div>
+      </div>
+      <div class="highlight-card">
+        <div class="number">0 extra</div>
+        <div class="label">No critic model needed<br>(gain-based advantages)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Method -->
+  <section>
+    <h2>Method</h2>
+    <div class="figure">
+      <img src="static/method.png" alt="Stepwise-Flow-GRPO method overview" style="max-width: 100%;">
+      <div class="figure-caption">
+        <strong>Stepwise-Flow-GRPO overview.</strong>
+        Using Tweedie's formula, we predict clean images x&#x0302;<sub>0</sub>(t) from intermediate noisy states x<sub>t</sub> and reward these estimates. The stepwise reward gain g<sub>t</sub> = r<sub>t-1</sub> - r<sub>t</sub> measures each step's contribution, providing fine-grained credit assignment without a separate critic model.
+      </div>
+    </div>
+  </section>
+
+  <!-- Sample Efficiency -->
+  <section>
+    <h2>Sample Efficiency</h2>
+    <p style="text-align:center; color: var(--muted); margin-bottom: 16px;">Stepwise-Flow-GRPO consistently outperforms Flow-GRPO in reward per training step across all settings.</p>
+    <div class="figure-grid">
+      <img src="static/pickscore_flowsde.png" alt="PickScore on GenEval">
+      <img src="static/imagereward_flowsde.png" alt="ImageReward on GenEval">
+      <img src="static/unified_flowsde.png" alt="UnifiedReward on GenEval">
+      <img src="static/picskscoreds_steps.png" alt="PickScore on PickScore Dataset">
+    </div>
+    <div class="figure-caption" style="text-align:center;">
+      Reward vs. training step across four settings: PickScore, ImageReward, and UnifiedReward on GenEval, and PickScore on PickScore Dataset.
+    </div>
+  </section>
+
+  <!-- Wall-Clock Efficiency -->
+  <section>
+    <h2>Wall-Clock Efficiency</h2>
+    <p style="text-align:center; color: var(--muted); margin-bottom: 16px;">Despite additional computation for intermediate denoising, our method converges faster in wall-clock time.</p>
+    <div class="figure-grid">
+      <img src="static/pickscore_flowsde_time.png" alt="PickScore wall-clock">
+      <img src="static/imagereward_flowsde_time.png" alt="ImageReward wall-clock">
+      <img src="static/unified_flowsde_time.png" alt="UnifiedReward wall-clock">
+      <img src="static/picskscoreds_runtime.png" alt="PickScore Dataset wall-clock">
+    </div>
+    <div class="figure-caption" style="text-align:center;">
+      Reward vs. wall-clock time for the same settings. Stepwise-Flow-GRPO achieves visibly superior performance in 3 out of 4 settings.
+    </div>
+  </section>
+
+  <!-- Extended Training -->
+  <section>
+    <h2>Extended Training</h2>
+    <div class="figure-grid-2">
+      <div>
+        <img src="static/geneval_runtime.png" alt="Extended GenEval training results">
+        <div class="figure-caption" style="text-align:center; margin-top: 8px;">
+          <strong>400 GPU-hour run.</strong> Stepwise-Flow-GRPO achieves 0.87 GenEval, substantially outperforming Flow-GRPO (0.72) and surpassing GPT-4o (0.84).
+        </div>
+      </div>
+      <div>
+        <img src="static/gain_magnitudes.png" alt="Gain magnitudes across steps">
+        <div class="figure-caption" style="text-align:center; margin-top: 8px;">
+          <strong>Gain magnitudes.</strong> Early steps show larger gains, indicating that compositional decisions drive most reward improvement.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GenEval Table -->
+  <section>
+    <h2>GenEval Benchmark</h2>
+    <div class="results-table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Overall</th>
+            <th>Single Obj.</th>
+            <th>Two Obj.</th>
+            <th>Counting</th>
+            <th>Colors</th>
+            <th>Position</th>
+            <th>Attr. Bind.</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="table-section"><td colspan="8">Pretrained Models</td></tr>
+          <tr>
+            <td>SD3.5-M (cfg=1.0)</td>
+            <td>0.28</td><td>0.71</td><td>0.23</td><td>0.15</td><td>0.45</td><td>0.05</td><td>0.08</td>
+          </tr>
+          <tr>
+            <td>SD3.5-M (cfg=4.5)</td>
+            <td>0.63</td><td>0.98</td><td>0.78</td><td>0.50</td><td>0.81</td><td>0.24</td><td>0.52</td>
+          </tr>
+          <tr class="table-section"><td colspan="8">Standard Training Duration</td></tr>
+          <tr>
+            <td>Flow-GRPO (cfg=1.0, PickScore)</td>
+            <td>0.60</td><td>0.96</td><td>0.73</td><td>0.67</td><td>0.67</td><td>0.21</td><td>0.35</td>
+          </tr>
+          <tr class="highlight">
+            <td><strong>Ours (cfg=1.0, PickScore)</strong></td>
+            <td>0.60</td><td>0.96</td><td>0.75</td><td>0.67</td><td>0.67</td><td>0.21</td><td>0.34</td>
+          </tr>
+          <tr>
+            <td>Flow-GRPO (cfg=4.5, PickScore)</td>
+            <td>0.68</td><td>0.98</td><td>0.82</td><td>0.64</td><td>0.82</td><td>0.24</td><td>0.59</td>
+          </tr>
+          <tr class="highlight">
+            <td><strong>Ours (cfg=4.5, PickScore)</strong></td>
+            <td><strong>0.71</strong></td><td><strong>0.98</strong></td><td><strong>0.85</strong></td><td><strong>0.70</strong></td><td><strong>0.82</strong></td><td><strong>0.29</strong></td><td><strong>0.59</strong></td>
+          </tr>
+          <tr class="table-section"><td colspan="8">Extended Training</td></tr>
+          <tr>
+            <td>Flow-GRPO (cfg=4.5, GenEval, 400 GPU hrs)</td>
+            <td>0.72</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td>
+          </tr>
+          <tr class="highlight">
+            <td><strong>Ours (cfg=4.5, UnifiedReward, 60 GPU hrs)</strong></td>
+            <td>0.74</td><td>0.99</td><td>0.89</td><td>0.73</td><td>0.83</td><td>0.34</td><td>0.66</td>
+          </tr>
+          <tr class="highlight">
+            <td><strong>Ours (cfg=4.5, GenEval, 400 GPU hrs)</strong></td>
+            <td><strong>0.87</strong></td><td><strong>0.99</strong></td><td><strong>0.93</strong></td><td><strong>0.89</strong></td><td><strong>0.87</strong></td><td><strong>0.73</strong></td><td><strong>0.80</strong></td>
+          </tr>
+          <tr class="table-section"><td colspan="8">Reference: State-of-the-art Models</td></tr>
+          <tr>
+            <td>Janus-Pro-7B</td>
+            <td>0.80</td><td>0.99</td><td>0.89</td><td>0.59</td><td>0.90</td><td>0.79</td><td>0.66</td>
+          </tr>
+          <tr>
+            <td>SANA-1.5 4.8B</td>
+            <td>0.81</td><td>0.99</td><td>0.93</td><td>0.86</td><td>0.84</td><td>0.59</td><td>0.65</td>
+          </tr>
+          <tr>
+            <td>GPT-4o</td>
+            <td>0.84</td><td>0.99</td><td>0.92</td><td>0.85</td><td>0.92</td><td>0.75</td><td>0.61</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="figure-caption" style="text-align:center;">
+      After 400 GPU hours of extended training, our method achieves 0.87 overall GenEval score, substantially outperforming Flow-GRPO (0.72) and surpassing GPT-4o (0.84).
+    </div>
+  </section>
+
+  <!-- Qualitative Results -->
+  <section>
+    <h2>Qualitative Results</h2>
+    <div class="figure">
+      <img src="static/qualitative.png" alt="Qualitative comparison between Flow-GRPO and Stepwise-Flow-GRPO">
+      <div class="figure-caption">
+        <strong>Qualitative comparison.</strong> Stepwise-Flow-GRPO produces better spatial reasoning, attribute binding, and counting compared to Flow-GRPO. Flow-GRPO sometimes merges objects or places them unrealistically, while our method generates more plausible compositions.
+      </div>
+    </div>
+  </section>
+
+  <!-- Extended Qualitative Results -->
+  <section>
+    <h2>More Results</h2>
+    <div class="figure">
+      <img src="static/qual-1.png" alt="Extended qualitative results page 1">
+    </div>
+    <div class="figure">
+      <img src="static/qual-2.png" alt="Extended qualitative results page 2">
+    </div>
+    <div class="figure">
+      <img src="static/qual-3.png" alt="Extended qualitative results page 3">
+    </div>
+    <div class="figure-caption" style="text-align:center;">
+      <strong>Extended qualitative results.</strong> Comparison of generated images from Stepwise-Flow-GRPO across diverse GenEval prompts, demonstrating improved compositional understanding, spatial reasoning, and attribute binding.
+    </div>
+    <div class="figure" style="margin-top: 40px;">
+      <img src="static/more_images.png" alt="Qualitative comparison across training objectives">
+      <div class="figure-caption">
+        <strong>Comparison across training objectives.</strong> Generated images from GenEval prompts using base SD3.5-M (left), GenEval reward training (middle), and UnifiedReward training (right). GenEval reward training improves prompt adherence and benchmark scores, while UnifiedReward training produces higher overall visual quality and more photorealistic images.
+      </div>
+    </div>
+  </section>
+
+  <!-- BibTeX -->
+  <section>
+    <h2>BibTeX</h2>
+    <div class="bibtex-wrapper">
+      <button class="copy-btn" onclick="copyBibtex()">Copy</button>
+      <pre><code id="bibtex">@inproceedings{savani2026stepwise,
+  title     = {Stepwise Credit Assignment for GRPO on Flow-Matching Models},
+  author    = {Savani, Yash and Kveton, Branislav and Liu, Yuchen and Wang, Yilin and Shi, Jing and Mukherjee, Subhojyoti and Vlassis, Nikos and Singh, Krishna Kumar},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2026}
+}</code></pre>
+    </div>
+  </section>
+
+  <footer>
+    <p>This website is for the paper "Stepwise Credit Assignment for GRPO on Flow-Matching Models" accepted at CVPR 2026.</p>
+  </footer>
+
+</div>
+
+<script>
+function copyBibtex() {
+  const text = document.getElementById('bibtex').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 2000);
+  });
+}
+</script>
+
+</body>
+</html>
